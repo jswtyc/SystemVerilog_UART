@@ -5,35 +5,43 @@ module tb_top(    );
 /*****************************************************************************
 *                                 variable                                  *
 *****************************************************************************/
+localparam DATA_WIDTH = 7;
+localparam PARITY_CHECK = "NONE";
 // top signal
 bit				  clk     ;
 bit               rst     ;
 always #5 clk = ~clk;
 
 //tx signal
-logic             tx      ;
-logic             tx_rdy  ;
-bit    [7 : 0]    tx_data ;
+logic                        tx      ;
+logic                        tx_rdy  ;
+logic                        tx_vld  ;
+bit    [DATA_WIDTH-1 : 0]    tx_data ;
 
 //rx signal
-wire               rx_vld     ;
-wire    [7 : 0]    rx_data    ;
-wire               rx_pc_pass ;
+wire                          rx_vld     ;
+wire    [DATA_WIDTH-1 : 0]    rx_data    ;
+wire                          rx_pc_pass ;
 
 /*****************************************************************************
 *                                  testing                                  *
 *****************************************************************************/
-
-bit [7:0] temp;
-bit [7:0] q[$];
+bit    [DATA_WIDTH   : 0]    temp ;
+bit    [DATA_WIDTH-1 : 0]    q[$] ;
 always_ff @ (posedge clk) begin
     temp = $urandom();
-    if(tx_rdy) begin
-        q.push_back(temp);
-        tx_data <= temp;
-    end
+    if (tx_vld==0) begin
+        tx_vld <= temp[DATA_WIDTH];
+        if(temp[DATA_WIDTH]) begin
+            q.push_back(temp[DATA_WIDTH-1:0]);
+            tx_data <= temp[DATA_WIDTH-1:0];
+        end
+    end else
+        tx_vld <= tx_rdy ? '0 : tx_vld;
+        
     if(rx_vld)
-        assert(q.pop_front() == rx_data);
+        assert(q.pop_front() == rx_data)
+        else $fatal("wrong");
 end
 
 /*****************************************************************************
@@ -41,14 +49,15 @@ end
 *****************************************************************************/
 
 uart_tx#(
-	.PARITY_CHECK("NONE"    ),
-	.CLK_FREQ    (100000000 ),
-	.TX_FREQ     (1000000   )
+    .DATA_WIDTH   ( DATA_WIDTH   ) ,
+    .PARITY_CHECK ( PARITY_CHECK ) ,
+    .CLK_FREQ     ( 100000000    ) ,
+    .TX_FREQ      ( 1000000      )
 )transmitter(
     .clk    ( clk       ),
     .rst    ( rst       ),
     
-    .i_vld  ( 1'b1      ),
+    .i_vld  ( tx_vld    ),
     .i_data ( tx_data   ),
     
     .o_rdy  ( tx_rdy    ),
@@ -56,9 +65,10 @@ uart_tx#(
 );
 
 uart_rx#(
-	.PARITY_CHECK("NONE"    ),
-	.CLK_FREQ    (100000000 ),
-	.TX_FREQ     (1000000   )
+    .DATA_WIDTH   ( DATA_WIDTH   ) ,
+    .PARITY_CHECK ( PARITY_CHECK ) ,
+    .CLK_FREQ     ( 100000000    ) ,
+    .TX_FREQ      ( 1000000      )
 )receiver(
     .clk     ( clk        ),
     .rst     ( rst        ),
