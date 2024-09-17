@@ -2,7 +2,7 @@ module uart_rx#(
 	parameter DATA_WIDTH   = 8        ,
 	parameter PARITY_CHECK = "NONE"   ,
 	parameter CLK_FREQ     = 50000000 ,
-	parameter TX_FREQ      = 9600
+	parameter BAUD_RATE    = 9600
 )(
      input                                 clk     ,
      input                                 rst     ,
@@ -21,13 +21,13 @@ module uart_rx#(
 
 initial begin
 	assert(PARITY_CHECK == "NONE" || PARITY_CHECK == "ODD" || PARITY_CHECK == "EVEN") else
-	$fatal("Input error in parity check method");
+	$fatal(1,"Input error in parity check method");
 
-	assert(CLK_FREQ/TX_FREQ >= 16) else
-	$fatal("the CLK_FREQ must be 16 times larger than TX_FREQ");
+	assert(CLK_FREQ/BAUD_RATE >= 16) else
+	$fatal(1,"the CLK_FREQ must be 16 times larger than BAUD_RATE");
 
-	assert(DATA_WIDTH >= 1)	else 
-	$fatal("The bit width of the data must be positive.");
+	assert(DATA_WIDTH >= 2)	else 
+	$fatal(1,"The bit width of the data must be reasonable.");
 
 	assert(DATA_WIDTH <= 8)	else
 	$warning("The bit width of the data seems too long.");
@@ -43,9 +43,9 @@ reg                pc_sample_time     ; // pc_sample_time == 1 represent all dat
 reg                non_pc_sample_time ; // non_pc_sample_time == 1 represent all data bits are sampled
 
 // counter
-reg    [$clog2(CLK_FREQ/TX_FREQ)-1 : 0]    signal_bit_cnter = CLK_FREQ/TX_FREQ - 1 ;
-reg    [$clog2(DATA_WIDTH+2)-1     : 0]    non_pc_bits_cnter  ;
-reg    [$clog2(DATA_WIDTH+3)-1     : 0]    pc_bits_cnter      ;
+reg    [$clog2(CLK_FREQ/BAUD_RATE)-1 : 0]    signal_bit_cnter = CLK_FREQ/BAUD_RATE - 1 ;
+reg    [$clog2(DATA_WIDTH+2)-1     : 0]    non_pc_data_cnter  ;
+reg    [$clog2(DATA_WIDTH+3)-1     : 0]    pc_data_cnter      ;
 
 // fsm
 reg                        rx_fsm  ; // fsm == 0 represent idle, fsm == 1 represent receiving
@@ -67,8 +67,8 @@ always_ff @(posedge clk) begin
 		pc_sample_time <= '0;
 		non_pc_sample_time <= '0;
 	end else begin
-		pc_sample_time <= (pc_bits_cnter == DATA_WIDTH+2 && signal_bit_cnter == (CLK_FREQ/TX_FREQ-1)>>1); 
-		non_pc_sample_time <= (non_pc_bits_cnter == DATA_WIDTH+1 && signal_bit_cnter  == (CLK_FREQ/TX_FREQ-1)>>1);
+		pc_sample_time <= (pc_data_cnter == DATA_WIDTH+2 && signal_bit_cnter == (CLK_FREQ/BAUD_RATE-1)>>1); 
+		non_pc_sample_time <= (non_pc_data_cnter == DATA_WIDTH+1 && signal_bit_cnter  == (CLK_FREQ/BAUD_RATE-1)>>1);
 	end
 end
 
@@ -91,21 +91,21 @@ end
 
 always_ff @(posedge clk) begin
 	if (rst)
-		signal_bit_cnter <= CLK_FREQ/TX_FREQ - 1 ;
+		signal_bit_cnter <= CLK_FREQ/BAUD_RATE - 1 ;
 	else if (!rx_fsm) 
-		signal_bit_cnter <= rx_buffer[0] ? CLK_FREQ/TX_FREQ - 1 : signal_bit_cnter - 1;
+		signal_bit_cnter <= rx_buffer[0] ? CLK_FREQ/BAUD_RATE - 1 : signal_bit_cnter - 1;
 	else if (rx_fsm) 
-		signal_bit_cnter <= signal_bit_cnter == 0 ? CLK_FREQ/TX_FREQ - 1 : signal_bit_cnter - 1 ;
+		signal_bit_cnter <= signal_bit_cnter == 0 ? CLK_FREQ/BAUD_RATE - 1 : signal_bit_cnter - 1 ;
 	
 	if (rst) begin
-		non_pc_bits_cnter <= '0;
-		pc_bits_cnter <= '0;
+		non_pc_data_cnter <= '0;
+		pc_data_cnter <= '0;
 	end else if (rx_fsm) begin
-		non_pc_bits_cnter <= signal_bit_cnter == 0 ? non_pc_bits_cnter + 1 : non_pc_bits_cnter;
-		pc_bits_cnter <= signal_bit_cnter == 0 ? pc_bits_cnter + 1 : pc_bits_cnter;
+		non_pc_data_cnter <= signal_bit_cnter == 0 ? non_pc_data_cnter + 1 : non_pc_data_cnter;
+		pc_data_cnter <= signal_bit_cnter == 0 ? pc_data_cnter + 1 : pc_data_cnter;
 	end else if (!rx_fsm) begin
-		non_pc_bits_cnter <= '0;
-		pc_bits_cnter <= '0;
+		non_pc_data_cnter <= '0;
+		pc_data_cnter <= '0;
 	end
 end
 
@@ -116,11 +116,11 @@ end
 always_ff @(posedge clk)
 	case (PARITY_CHECK)
 		"NONE": 
-			if (rx_fsm && (|non_pc_bits_cnter) && non_pc_bits_cnter != DATA_WIDTH+1)
-				rx_data <= signal_bit_cnter == (CLK_FREQ/TX_FREQ-1)>>1 ? {sample,rx_data[DATA_WIDTH-1:1]} : rx_data;
+			if (rx_fsm && (|non_pc_data_cnter) && non_pc_data_cnter != DATA_WIDTH+1)
+				rx_data <= signal_bit_cnter == (CLK_FREQ/BAUD_RATE-1)>>1 ? {sample,rx_data[DATA_WIDTH-1:1]} : rx_data;
 		default:
-			if (rx_fsm && (|pc_bits_cnter) && pc_bits_cnter != DATA_WIDTH+2)
-				rx_data <= signal_bit_cnter == (CLK_FREQ/TX_FREQ-1)>>1 ? {sample,rx_data[DATA_WIDTH:1]} : rx_data;
+			if (rx_fsm && (|pc_data_cnter) && pc_data_cnter != DATA_WIDTH+2)
+				rx_data <= signal_bit_cnter == (CLK_FREQ/BAUD_RATE-1)>>1 ? {sample,rx_data[DATA_WIDTH:1]} : rx_data;
 	endcase
 
 always_ff @(posedge clk) begin
