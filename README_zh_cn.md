@@ -1,6 +1,6 @@
 *引言*：
 
-*    这是一个基于AXI-Stream/Ready-Vallid协议的UART设计。
+*    这是一个基于Ready-Vallid协议的UART设计。
 *	支持参数化数据位宽、时钟频率、波特率和奇偶校验。
 
 *详细细节*：

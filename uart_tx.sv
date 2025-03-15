@@ -11,7 +11,7 @@ module uart_tx#(
      input    [DATA_WIDTH-1 : 0]    i_data ,
 
     output                          o_rdy  ,
-    output    reg                   tx
+    output    bit                   tx = 1
 ) ;
 /*****************************************************************************
 *                             check parameter                               *
@@ -21,8 +21,8 @@ initial begin
 	assert(PARITY_CHECK == "NONE" || PARITY_CHECK == "ODD" || PARITY_CHECK == "EVEN") else
 	$fatal(1,"Input error in parity check method");
 
-	assert(CLK_FREQ/BAUD_RATE >= 16) else
-	$fatal(1,"the CLK_FREQ must be 16 times larger than BAUD_RATE");
+	assert(CLK_FREQ/BAUD_RATE >= 2) else
+	$fatal(1,"the CLK_FREQ must be 2 times larger than BAUD_RATE");
 
 	assert(DATA_WIDTH >= 2)	else 
 	$fatal(1,"The bit width of the data must be reasonable.");
@@ -41,12 +41,13 @@ reg    [DATA_WIDTH+2 : 0]    even_pc_data = '1 ;
 
 // counters
 reg    [$clog2(CLK_FREQ/BAUD_RATE)-1 : 0]    signal_bit_cnter = CLK_FREQ/BAUD_RATE - 2 ;
-reg    [$clog2(DATA_WIDTH+2)-1     : 0]    non_pc_data_cnter ;
-reg    [$clog2(DATA_WIDTH+3)-1     : 0]    pc_data_cnter     ;
+reg    [$clog2(DATA_WIDTH+2)-1       : 0]    non_pc_data_cnter ;
+reg    [$clog2(DATA_WIDTH+3)-1       : 0]    pc_data_cnter     ;
 
 //fsm
 reg    tx_fsm = '0 ; // fsm == 0 represent idle, fsm == 1 represent sending
 
+reg    tx_pre = '1 ;
 /*****************************************************************************
 *                                  TX_FSM                                   *
 *****************************************************************************/
@@ -59,8 +60,8 @@ always_ff @(posedge clk) begin
 		tx_fsm <= 1 ;
 	else if (tx_fsm == 1) 
 		case(PARITY_CHECK)
-			"NONE"  : tx_fsm <= !((non_pc_data_cnter == DATA_WIDTH+1) && (signal_bit_cnter == 0));
-			default : tx_fsm <= !((pc_data_cnter     == DATA_WIDTH+2) && (signal_bit_cnter == 0));
+			"NONE"  : tx_fsm <= !((non_pc_data_cnter == DATA_WIDTH+1) && (signal_bit_cnter == 1));
+			default : tx_fsm <= !((pc_data_cnter     == DATA_WIDTH+2) && (signal_bit_cnter == 1));
 		endcase
 end
 
@@ -88,11 +89,9 @@ always_ff @(posedge clk)
 *                          counter start and stop                           *
 *****************************************************************************/
 always_ff @(posedge clk) begin
-	if (rst)
-		signal_bit_cnter <= CLK_FREQ/BAUD_RATE - 1;
-	else if (tx_fsm) 
+	if (tx_fsm) 
 		signal_bit_cnter <= signal_bit_cnter == 0 ? CLK_FREQ/BAUD_RATE - 1 : signal_bit_cnter - 1;
-	else if (!tx_fsm)
+	else
 		signal_bit_cnter <= CLK_FREQ/BAUD_RATE - 2;
 	
 	if (rst) begin
@@ -111,11 +110,15 @@ end
 *                           shift data and output                           *
 *****************************************************************************/
 always_ff @(posedge clk) begin
-	case (PARITY_CHECK)
-		"NONE" : tx <= i_vld && o_rdy ? '0 : non_pc_data[0]  ;
-		"ODD"  : tx <= i_vld && o_rdy ? '0 : odd_pc_data[0]  ;
-		"EVEN" : tx <= i_vld && o_rdy ? '0 : even_pc_data[0] ;
-	endcase
+	if (rst)
+		tx_pre <= '1 ;
+	else
+		case (PARITY_CHECK)
+			"NONE" : tx_pre <= i_vld && o_rdy ? '0 : non_pc_data[0]  ;
+			"ODD"  : tx_pre <= i_vld && o_rdy ? '0 : odd_pc_data[0]  ;
+			"EVEN" : tx_pre <= i_vld && o_rdy ? '0 : even_pc_data[0] ;
+		endcase
+	tx <= rst ? '1 : tx_pre ;
 end
 
 endmodule

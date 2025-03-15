@@ -2,7 +2,7 @@
 
 *Introduction*:
 
-* This is a UART design based on AXI Stream/Ready Vallid protocol.
+* This is a UART design based on Ready/Vallid protocol.
 * Support parameterized data bit width, clock frequency, baud rate, and parity check.
 
 *Internal details*:		 

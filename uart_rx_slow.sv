@@ -1,4 +1,4 @@
-module uart_rx#(
+module uart_rx_slow#(
 	parameter DATA_WIDTH   = 8        ,
 	parameter PARITY_CHECK = "NONE"   ,
 	parameter CLK_FREQ     = 50000000 ,
@@ -33,6 +33,9 @@ initial begin
 	$warning("The bit width of the data seems too long.");
 end
 
+(* ASYNC_REG="TRUE" *) reg [2-1:0] sreg = '1;
+always_ff @ (posedge clk) sreg <= {sreg[0], rx};
+
 /*****************************************************************************
 *                                 variable                                  *
 *****************************************************************************/
@@ -44,8 +47,8 @@ reg                non_pc_sample_time ; // non_pc_sample_time == 1 represent all
 
 // counter
 reg    [$clog2(CLK_FREQ/BAUD_RATE)-1 : 0]    signal_bit_cnter = CLK_FREQ/BAUD_RATE - 1 ;
-reg    [$clog2(DATA_WIDTH+2)-1     : 0]    non_pc_data_cnter  ;
-reg    [$clog2(DATA_WIDTH+3)-1     : 0]    pc_data_cnter      ;
+reg    [$clog2(DATA_WIDTH+2)-1       : 0]    non_pc_data_cnter ;
+reg    [$clog2(DATA_WIDTH+3)-1       : 0]    pc_data_cnter     ;
 
 // fsm
 reg                        rx_fsm  ; // fsm == 0 represent idle, fsm == 1 represent receiving
@@ -58,7 +61,7 @@ reg    [DATA_WIDTH : 0]    rx_data ;
 *****************************************************************************/
 
 always_ff @(posedge clk) 
-	rx_buffer <= rst ? '1 : { rx_buffer[2:0] , rx } ;
+	rx_buffer <= rst ? '1 : {rx_buffer[2:0], sreg[1]} ;
 
 assign sample = (rx_buffer[0] + rx_buffer[1] + rx_buffer[2] + rx_buffer[3]) > 2;
 
@@ -67,6 +70,8 @@ always_ff @(posedge clk) begin
 		pc_sample_time <= '0;
 		non_pc_sample_time <= '0;
 	end else begin
+		// Enter the time to receive the stop code, select the appropriate time 
+		// to output or calculate the checksum and output.
 		pc_sample_time <= (pc_data_cnter == DATA_WIDTH+2 && signal_bit_cnter == (CLK_FREQ/BAUD_RATE-1)>>1); 
 		non_pc_sample_time <= (non_pc_data_cnter == DATA_WIDTH+1 && signal_bit_cnter  == (CLK_FREQ/BAUD_RATE-1)>>1);
 	end
@@ -81,7 +86,7 @@ always_ff @(posedge clk) begin
 	if (rst) 
 		rx_fsm <= 0 ;
 	else if ( rx_fsm == 0 ) 
-		rx_fsm <= !(|(signal_bit_cnter>>2)) ;
+		rx_fsm <= signal_bit_cnter == (CLK_FREQ/BAUD_RATE-1)>>1;
 	else if ( rx_fsm == 1 )
 		case (PARITY_CHECK)
 			"NONE"  : rx_fsm <= !non_pc_sample_time ;
