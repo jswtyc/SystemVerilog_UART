@@ -54,7 +54,7 @@ reg    [$clog2(DATA_WIDTH+3)-1       : 0]    pc_data_cnter     ;
 reg                        rx_fsm  ; // fsm == 0 represent idle, fsm == 1 represent receiving
 
 // for output 
-reg    [DATA_WIDTH : 0]    rx_data ;
+bit    [DATA_WIDTH : 0]    rx_data ;
 
 /*****************************************************************************
 *                   Control sampling and decision-making                    *

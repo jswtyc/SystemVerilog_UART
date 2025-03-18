@@ -60,8 +60,8 @@ always_ff @(posedge clk) begin
 		tx_fsm <= 1 ;
 	else if (tx_fsm == 1) 
 		case(PARITY_CHECK)
-			"NONE"  : tx_fsm <= !((non_pc_data_cnter == DATA_WIDTH+1) && (signal_bit_cnter == 1));
-			default : tx_fsm <= !((pc_data_cnter     == DATA_WIDTH+2) && (signal_bit_cnter == 1));
+			"NONE"  : tx_fsm <= !((non_pc_data_cnter == DATA_WIDTH+1) && (signal_bit_cnter == 0));
+			default : tx_fsm <= !((pc_data_cnter     == DATA_WIDTH+2) && (signal_bit_cnter == 0));
 		endcase
 end
 
