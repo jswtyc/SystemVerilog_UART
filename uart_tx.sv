@@ -76,8 +76,8 @@ always_ff @(posedge clk)
 		even_pc_data <= '1 ;
 	end else if (o_rdy&&i_vld) begin
 		non_pc_data  <= { 1'b1             ,i_data ,1'b0 } ;
-		odd_pc_data  <= { 1'b1 ,!(^i_data) ,i_data ,1'b0 } ;
-		even_pc_data <= { 1'b1 ,^i_data    ,i_data ,1'b0 } ;
+		odd_pc_data  <= { 1'b1 ,^i_data    ,i_data ,1'b0 } ;
+		even_pc_data <= { 1'b1 ,!(^i_data) ,i_data ,1'b0 } ;
 	end else if (signal_bit_cnter == 0) begin
 		non_pc_data  <= { 1'b1 , non_pc_data[DATA_WIDTH+1  : 1] } ;
 		odd_pc_data  <= { 1'b1 , odd_pc_data[DATA_WIDTH+2  : 1] } ;
