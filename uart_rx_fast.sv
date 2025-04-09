@@ -142,7 +142,7 @@ always_ff @(posedge clk) begin
 			else if (i_rdy&&o_vld)
 				o_vld <= 0;
 		end
-		"EVEN": begin
+		"ODD": begin
 			o_data <= pc_sample_time ? rx_data[DATA_WIDTH-1 : 0] : o_data ;
 			pc_pass <= pc_sample_time ? ~(^rx_data) : pc_pass;
 			if (rst) 
@@ -152,7 +152,7 @@ always_ff @(posedge clk) begin
 			else if (i_rdy&&o_vld) 
 				o_vld <= 0;
 		end
-		"ODD": begin
+		"EVEN": begin
 			o_data <= pc_sample_time ? rx_data[DATA_WIDTH-1 : 0] : o_data ;
 			pc_pass <= pc_sample_time ? (^rx_data) : pc_pass;
 			if (rst) 
